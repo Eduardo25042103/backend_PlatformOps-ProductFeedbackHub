@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: >
+  OpsHub Backend - PlatformOps & Product Feedback Hub API (.NET 10)
+  Desplegado en AWS Lambda detrás de AWS API Gateway HTTP API (Payload v2.0)
+  Integrado con Amazon RDS MySQL 8.4 LTS y Amazon S3.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Entorno de despliegue para la aplicación.
+
+  DatabaseConnectionString:
+    Type: String
+    NoEcho: true
+    Description: Cadena de conexión JDBC/MySQL hacia Amazon RDS con pool limitado.
+    Default: "Server=opshub-rds.c12345678.us-east-1.rds.amazonaws.com;Port=3306;Database=opshub_db;Uid=opshub_admin;Pwd=CambiarPorPasswordSeguro2026!;Pooling=true;MinPoolSize=0;MaxPoolSize=3;ConnectionLifeTime=180;ConnectionTimeout=15;"
+
+  JwtSecretKey:
+    Type: String
+    NoEcho: true
+    Description: Clave simétrica de al menos 256 bits para firma de tokens JWT Bearer.
+    Default: "OpsHub_Super_Secret_Production_Key_2026_Min_32_Characters_Long!"
+
+  JwtIssuer:
+    Type: String
+    Default: "OpsHubApi"
+    Description: Emisor del token JWT.
+
+  JwtAudience:
+    Type: String
+    Default: "OpsHubClients"
+    Description: Audiencia autorizada de los tokens JWT.
+
+  S3BucketName:
+    Type: String
+    Default: "opshub-adjuntos-prod"
+    Description: Nombre del depósito de Amazon S3 para evidencias y capturas técnicas.
+
+  ZohoWebhookSecret:
+    Type: String
+    NoEcho: true
+    Default: "zoho_hmac_secret_production_2026"
+    Description: Clave secreta compartida para validar firmas HMAC-SHA256 de Zoho CRM.
+
+  CognitoUserPoolId:
+    Type: String
+    Default: "us-east-2_5QCZKDuMi"
+    Description: ID del User Pool de AWS Cognito en us-east-2.
+
+  CognitoClientId:
+    Type: String
+    Default: "t4jlbvlo4pt244cnige95a5q0"
+    Description: ID del App Client de AWS Cognito sin Client Secret.
+
+  EnableSwaggerInProd:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: Habilitar Swagger UI (/swagger) en entorno de producción para evaluación del jurado.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 1024
+    Runtime: provided.al2023
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        ASPNETCORE_ENVIRONMENT: Production
+        DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
+        ConnectionStrings__DefaultConnection: !Ref DatabaseConnectionString
+        JwtSettings__SecretKey: !Ref JwtSecretKey
+        JwtSettings__Issuer: !Ref JwtIssuer
+        JwtSettings__Audience: !Ref JwtAudience
+        AWS__BucketName: !Ref S3BucketName
+        AWS__Cognito__UserPoolId: !Ref CognitoUserPoolId
+        AWS__Cognito__ClientId: !Ref CognitoClientId
+        AWS__Cognito__Region: !Ref AWS::Region
+        Zoho__WebhookSecret: !Ref ZohoWebhookSecret
+        EnableSwaggerInProd: !Ref EnableSwaggerInProd
+
+Resources:
+  OpsHubHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Zoho-Signature
+          - X-Client-Platform
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        MaxAge: 600
+
+  OpsHubApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "opshub-backend-${Stage}"
+      Description: "Función Lambda que ejecuta la Web API de OpsHub (.NET 10) con Clean Architecture"
+      Handler: OpsHub.Api
+      CodeUri: .
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminInitiateAuth
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminDeleteUser
+              Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}"
+      Events:
+        RootPath:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OpsHubHttpApi
+            Path: /
+            Method: ANY
+        ProxyPath:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OpsHubHttpApi
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  HttpApiUrl:
+    Description: "URL base del API Gateway HTTP API v2 generado"
+    Value: !Sub "https://${OpsHubHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+
+  SwaggerUrl:
+    Description: "Acceso interactivo a Swagger UI para evaluación y sustentación de jurado"
+    Value: !Sub "https://${OpsHubHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/swagger"
+
+  LambdaFunctionArn:
+    Description: "ARN de la función AWS Lambda ejecutando .NET 10"
+    Value: !GetAtt OpsHubApiFunction.Arn

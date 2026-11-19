@@ -1,0 +1,18 @@
+{
+  "Information": [
+    "Archivo de configuraci\u00F3n por defecto para despliegue de OpsHub Backend con la herramienta dotnet-lambda y AWS SAM."
+  ],
+  "profile": "idat-cli",
+  "region": "us-east-2",
+  "configuration": "Release",
+  "framework": "net10.0",
+  "function-runtime": "provided.al2023",
+  "function-memory-size": 1024,
+  "function-timeout": 30,
+  "function-handler": "OpsHub.Api",
+  "template": "serverless.template",
+  "s3-prefix": "opshub-deployments/",
+  "s3-bucket": "opshub-deploy-idat-2026",
+  "template-parameters": "\u0022Stage\u0022=\u0022prod\u0022;\u0022DatabaseConnectionString\u0022=\u0022Server=opshub-rds.c12345678.us-east-1.rds.amazonaws.com;Port=3306;Database=opshub_db;Uid=opshub_admin;Pwd=CambiarPorPasswordSeguro2026!;Pooling=true;MinPoolSize=0;MaxPoolSize=3;ConnectionLifeTime=180;ConnectionTimeout=15;\u0022;\u0022JwtSecretKey\u0022=\u0022OpsHub_Super_Secret_Production_Key_2026_Min_32_Characters_Long!\u0022;\u0022JwtIssuer\u0022=\u0022OpsHubApi\u0022;\u0022JwtAudience\u0022=\u0022OpsHubClients\u0022;\u0022S3BucketName\u0022=\u0022opshub-adjuntos-prod\u0022;\u0022ZohoWebhookSecret\u0022=\u0022zoho_hmac_secret_production_2026\u0022;\u0022EnableSwaggerInProd\u0022=\u0022true\u0022",
+  "stack-name": "opshub-backend-prod"
+}

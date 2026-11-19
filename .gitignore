@@ -1,0 +1,24 @@
+## .NET Build Outputs
+[Bb]in/
+[Oo]bj/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.zip
+*.tar.gz
+
+## IDE & Editors
+.vs/
+.idea/
+.vscode/
+
+## Environment / Local secrets
+appsettings.Development.json
+*.local.json
+.env
+
+## OS generated
+.DS_Store
+Thumbs.db
+*.log
